@@ -271,3 +271,7 @@ summary_df <- combined_df %>%
 print(summary_df)
 # total_rows rows_with_coordinates rows_without_coordinates
 # 1       3991                  3989                        2
+
+
+write.table(combined_df, "/Users/elifka/Library/CloudStorage/OneDrive-UMONS/PhDThesis_Elif-2020-2024/BEE-DATABASES/BEEPR-combined-geocod-last.txt", 
+            row.names = FALSE, sep = "\t", quote = FALSE, na = "", fileEncoding = "UTF-8")
