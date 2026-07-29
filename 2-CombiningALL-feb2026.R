@@ -3,7 +3,7 @@
 #          BEEPR - Creating a database of bees from Puerto Rico
 #          Museum collection dataset: COMBINING ALL
 #          GBIF (cleaned), MZUPRRP, MEBT, SP, EM
-#          Elif Kardas (elif.kardas@umons.ac.be) - last update: February 13th 2026
+#          Elif Kardas (elif.kardas@umons.ac.be) - last update: July 29th 2026
 #
 ##############################################################################################################
 
@@ -42,7 +42,7 @@ dfSP <- read.delim(
   stringsAsFactors = FALSE,
   fileEncoding = "UTF-8"
 )
-nrow(dfSP) #22
+nrow(dfSP) #20
 #dfEM <- read.csv("BEEPR-EM-clean-forMuseum-beforeAccNb-genus.csv", header = TRUE)
 dfEM <- read.delim(
   "BEEPR-EM-clean-forMuseum-beforeAccNb-genus.txt",
@@ -77,10 +77,19 @@ combined_df <- bind_rows(
 )
 
 
-nrow(combined_df) #3990
+nrow(combined_df) #3988
 #View(combined_df) 
 
-unique(combined_df$specificEpithet) # ok
+unique(combined_df$specificEpithet) # 39, we need to correct busckii et buscki.
+combined_df <- combined_df %>%
+  dplyr::mutate(
+    specificEpithet = dplyr::if_else(
+      specificEpithet == "busckii",
+      "buscki",
+      specificEpithet
+    )
+  )
+unique(combined_df$specificEpithet) # 38, OK!
 unique(combined_df$scientificName) # 84, we need to take out duplicates
 
 ###################################################
@@ -158,8 +167,8 @@ combined_df$scientificName <- ifelse(
   name_mapping[combined_df$scientificName],  # replace if mapped
   combined_df$scientificName                 # keep original if not
 )
-combined_df$scientificName[combined_df$scientificName == "Coelioxys abdominalis Gu√©rin-M√©neville, 1844"] <- "Coelioxys abdominalis Guérin-Méneville, 1844"
-combined_df$scientificName[combined_df$scientificName == "Agapostemon Gu√©rin-M√©neville, 1844"] <- "Agapostemon Guérin-Méneville, 1844"
+combined_df$scientificName[combined_df$scientificName == "Coelioxys abdominalis Gu√(C)rin-M√(C)neville, 1844"] <- "Coelioxys abdominalis Guérin-Méneville, 1844"
+combined_df$scientificName[combined_df$scientificName == "Agapostemon Gu√(C)rin-M√(C)neville, 1844"] <- "Agapostemon Guérin-Méneville, 1844"
 
 unique(combined_df$scientificName) # 50 ok
 
@@ -198,7 +207,7 @@ combined_df$taxonRemarks[condition]   <- paste(
 
 unique(combined_df$scientificName) # 50 values
 
-nrow(combined_df) #3990 OK
+nrow(combined_df) #3988 OK
 
 
 
@@ -240,9 +249,10 @@ combined_df <- combined_df %>%
     )
   )
 
-nrow(combined_df) #3990
+nrow(combined_df) #3988
 #View(combined_df)
 
 # write table
 write.table(combined_df, "/Users/elifka/Library/CloudStorage/OneDrive-UMONS/PhDThesis_Elif-2020-2024/BEE-DATABASES/BEEPR-combined-last.txt", 
             row.names = FALSE, sep = "\t", quote = FALSE, na = "", fileEncoding = "UTF-8")
+
