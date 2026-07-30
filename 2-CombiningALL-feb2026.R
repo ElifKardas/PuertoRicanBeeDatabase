@@ -42,7 +42,7 @@ dfSP <- read.delim(
   stringsAsFactors = FALSE,
   fileEncoding = "UTF-8"
 )
-nrow(dfSP) #20
+nrow(dfSP) #22
 #dfEM <- read.csv("BEEPR-EM-clean-forMuseum-beforeAccNb-genus.csv", header = TRUE)
 dfEM <- read.delim(
   "BEEPR-EM-clean-forMuseum-beforeAccNb-genus.txt",
@@ -77,10 +77,10 @@ combined_df <- bind_rows(
 )
 
 
-nrow(combined_df) #3988
+nrow(combined_df) #3990
 #View(combined_df) 
 
-unique(combined_df$specificEpithet) # 39, we need to correct busckii et buscki.
+unique(combined_df$specificEpithet) # 40, we need to correct busckii et buscki.
 combined_df <- combined_df %>%
   dplyr::mutate(
     specificEpithet = dplyr::if_else(
@@ -89,7 +89,8 @@ combined_df <- combined_df %>%
       specificEpithet
     )
   )
-unique(combined_df$specificEpithet) # 38, OK!
+unique(combined_df$specificEpithet) # 39, OK!
+
 unique(combined_df$scientificName) # 84, we need to take out duplicates
 
 ###################################################
@@ -249,10 +250,9 @@ combined_df <- combined_df %>%
     )
   )
 
-nrow(combined_df) #3988
+nrow(combined_df) #3990
 #View(combined_df)
 
 # write table
 write.table(combined_df, "/Users/elifka/Library/CloudStorage/OneDrive-UMONS/PhDThesis_Elif-2020-2024/BEE-DATABASES/BEEPR-combined-last.txt", 
             row.names = FALSE, sep = "\t", quote = FALSE, na = "", fileEncoding = "UTF-8")
-
