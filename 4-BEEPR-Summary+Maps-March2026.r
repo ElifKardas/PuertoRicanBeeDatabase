@@ -3,114 +3,20 @@
 #          BEEPR - Creating a database of bees from Puerto Rico
 #          Museum collection dataset, all combined
 #          SUMMARIZING AND MAPS
-#          Elif Kardas (elif.kardas@umons.ac.be) - last update: March 26th 2026
+#          Elif Kardas (elif.kardas@umons.ac.be) - last update: Aug 3rd 2026
 #
 ##############################################################################################################
 
+setwd("/Users/elifka/Library/CloudStorage/OneDrive-UMONS/PhDThesis_Elif-2020-2024/BEE-DATABASES/")
 
-######################################################################
-# -----------------------------
-# Separate valid/missing coordinates
-# -----------------------------
-######################################################################
-# Count rows with georeferences
-combined_df %>%
-  summarize(
-    total_rows = n(),
-    rows_with_coordinates = sum(!is.na(decimalLatitude) & !is.na(decimalLongitude)),
-    rows_without_coordinates = sum(is.na(decimalLatitude) | is.na(decimalLongitude))
-  )
-occ_with <- combined_df[!is.na(combined_df$decimalLatitude) & !is.na(combined_df$decimalLongitude), ]
-occ_missing <- combined_df[is.na(combined_df$decimalLatitude) | is.na(combined_df$decimalLongitude), ]
-
-# -----------------------------
-# Get Puerto Rico polygon
-# -----------------------------
-pr <- ne_countries(scale = "large", returnclass = "sf") %>%
-  filter(admin == "Puerto Rico")
-
-# define the bounds
-lat_min <- 17.8
-lat_max <- 18.6
-lon_min <- -68.5
-lon_max <- -65.2
-
-# Keep only coordinates inside Puerto Rico
-occ_with <- occ_with %>%
-  filter(decimalLatitude  >= lat_min &
-           decimalLatitude  <= lat_max &
-           decimalLongitude >= lon_min &
-           decimalLongitude <= lon_max)
-# use polygon check (more precise)
-
-library(sf)
-
-# -----------------------------
-# Convert to sf object for plotting
-# -----------------------------
-occ_with_sf <- st_as_sf(occ_with,
-                        coords = c("decimalLongitude", "decimalLatitude"),
-                        crs = 4326)
-
-
-# Keep only points inside the PR polygon
-occ_with_sf <- occ_with_sf[st_within(occ_with_sf, pr, sparse = FALSE), ]
-
-
-# -----------------------------
-# Plot map
-# -----------------------------
-#Plot occurrences in general
-ggplot() +
-  geom_sf(data = pr, fill = "grey90", color = "black") +
-  geom_sf(data = occ_with_sf, color = "darkblue", size = 2, alpha = 0.7) +
-  coord_sf(xlim = c(-68.2, -65.2), ylim = c(17.6, 18.8)) +
-  labs(title = "Bee occurrences over the Archipelago of Puerto Rico (all databases)")+
-  theme_minimal()
-
-#Plot occurrences per institutionCode
-ggplot() +
-  geom_sf(data = pr, fill = "grey90", color = "black") +
-  geom_sf(data = occ_with_sf,
-          aes(color = institutionCode),
-          size = 2,
-          alpha = 0.7) +
-  coord_sf(xlim = c(-68.2, -65.2), ylim = c(17.6, 18.8)) +
-  labs(title = "Bee occurrences over the Archipelago of Puerto Rico (per museum)")+
-  theme_minimal()
-
-#Plot occurrences per databaseSource
-ggplot() +
-  geom_sf(data = pr, fill = "grey90", color = "black") +
-  geom_sf(data = occ_with_sf,
-          aes(color = databaseSource),
-          size = 2,
-          alpha = 0.7) +
-  coord_sf(xlim = c(-68.2, -65.2), ylim = c(17.6, 18.8)) +
-  labs(title = "Bee occurrences over the Archipelago of Puerto Rico (per data source)")+
-  theme_minimal()
-
-#Plot occurrences per databaseSource, excluding Bees_Of_SJ
-
-# filter out Bees_Of_SJ
-library(dplyr)
-
-BEEPR_wtSJ <- occ_with_sf %>%
-  filter(databaseSource != "Bees_Of_SJ" | is.na(databaseSource))
-
-
-ggplot() +
-  geom_sf(data = pr, fill = "grey90", color = "black") +
-  geom_sf(data = BEEPR_wtSJ,
-          aes(color = databaseSource),
-          size = 2,
-          alpha = 0.7) +
-  coord_sf(xlim = c(-68.2, -65.2), ylim = c(17.6, 18.8)) +
-  labs(title = "Bee occurrences over the Archipelago of Puerto Rico (excluding Bees_Of_SJ)")+
-  theme_minimal()
-
-
-
+#input file
+combined_df <- read.delim(
+  "/Users/elifka/Library/CloudStorage/OneDrive-UMONS/PhDThesis_Elif-2020-2024/BEE-DATABASES/BEEPR-combined-Geocoded.txt",
+  header = TRUE,
+  stringsAsFactors = FALSE,
+  fileEncoding = "UTF-8",
+  quote = ""
+)
 
 
 ############################################################
@@ -131,9 +37,41 @@ pr <- ne_countries(
 ) %>%
   filter(admin == "Puerto Rico")
 
-# ---- 3. ENSURE CRS MATCH ----
-# occ_with_sf must be sf with lon/lat
+# ---- 3. Count occurrences with georeferences vs. without ----
+combined_df %>%
+  summarise(
+    total_rows = n(),
+    rows_with_coordinates = sum(!is.na(decimalLatitude) & !is.na(decimalLongitude)),
+    rows_without_coordinates = sum(is.na(decimalLatitude) | is.na(decimalLongitude))
+  )
+
+# Create dataframe with and without coordinates
+occ_with <- combined_df[!is.na(combined_df$decimalLatitude) & !is.na(combined_df$decimalLongitude), ]
+occ_missing <- combined_df[is.na(combined_df$decimalLatitude) | is.na(combined_df$decimalLongitude), ]
+
+# Define the bounding box for Puerto Rico
+lat_min <- 17.8
+lat_max <- 18.6
+lon_min <- -68.0
+lon_max <- -65.1
+
+# Keep only coordinates inside the rough bounding box
+occ_with <- occ_with %>%
+  filter(decimalLatitude  >= lat_min &
+           decimalLatitude  <= lat_max &
+           decimalLongitude >= lon_min &
+           decimalLongitude <= lon_max)
+
+# ---- 4. Convert to sf object for plotting ----
+occ_with_sf <- st_as_sf(occ_with,
+                        coords = c("decimalLongitude", "decimalLatitude"),
+                        crs = 4326)
+
+# ---- 5. Ensure CRS match BEFORE spatial operations ----
 occ_with_sf <- st_transform(occ_with_sf, st_crs(pr))
+
+# Keep only points inside the PR polygon (use polygon check, more precise)
+occ_with_sf <- occ_with_sf[lengths(st_within(occ_with_sf, pr)) > 0, ]
 
 #################################
 # ---- 4. PUBLICATION MAP 1 ----
@@ -190,7 +128,7 @@ p
 
 #export
 ggsave(
-  "maps/puerto_rico_occurrences_map1.pdf",
+  "/Users/elifka/Library/CloudStorage/OneDrive-UMONS/PhDThesis_Elif-2020-2024/BEE-DATABASES/maps/puerto_rico_occurrences_map1.pdf",
   plot = p,
   width = 15,
   height = 10,
@@ -201,7 +139,7 @@ ggsave(
 # ---- 4. PUBLICATION MAP 2 ----
 #################################
 ############################################################
-# FACET MAP BY dataSource (PUBLICATION RECOMMENDED)
+# FACET MAP BY dataSource
 ############################################################
 
 # Then plot
@@ -229,7 +167,7 @@ p2
 
 #export
 ggsave(
-  "maps/puerto_rico_occurrences_map2.pdf",
+  "/Users/elifka/Library/CloudStorage/OneDrive-UMONS/PhDThesis_Elif-2020-2024/BEE-DATABASES/maps/puerto_rico_occurrences_map2.pdf",
   plot = p2,
   width = 25,
   height = 12.5,
@@ -243,7 +181,6 @@ ggsave(
 ############################################################################################
 ############################################################################################
 ############################################################################################
-install.packages(c("dplyr", "ggplot2", "sf", "lubridate", "viridis"))
 
 ############################################################
 # OCCURRENCE ACCESS (occAccess-style) BIAS ANALYSIS
@@ -253,7 +190,7 @@ install.packages(c("dplyr", "ggplot2", "sf", "lubridate", "viridis"))
 # ========================
 # 1. PACKAGES
 # ========================
-
+#install.packages(c("dplyr", "ggplot2", "sf", "lubridate", "viridis"))
 library(dplyr)
 library(ggplot2)
 library(sf)
@@ -334,6 +271,71 @@ ggsave(
   units = "cm"
 )
 
+
+# Without "Bees_Of_SJ":
+#######################
+occ_with_sf_clean_wbosj <- occ_with_sf_clean |>
+  filter(
+    databaseSource != "Bees_Of_SJ"
+  )
+
+# Reproject to UTM zone 20N (meters)
+occ_utm <- st_transform(occ_with_sf_clean_wbosj, 32620)
+pr_utm  <- st_transform(pr, 32620)
+
+# Extract coordinates in meters
+occ_coords <- occ_utm |>
+  mutate(
+    x = st_coordinates(geometry)[,1],
+    y = st_coordinates(geometry)[,2]
+  )
+
+p_spatial_bias_wbosj <- ggplot() +
+  
+  geom_sf(
+    data = pr_utm,
+    fill = "grey95",
+    color = "grey40",
+    linewidth = 0.3
+  ) +
+  
+  stat_bin_hex(
+    data = occ_coords,
+    aes(x = x, y = y, fill = after_stat(count)),
+    bins = 40,
+    alpha = 0.9
+  ) +
+  
+  scale_fill_viridis(
+    option = "C",
+    name = "Record count"
+  ) +
+  
+  labs(
+    title = "Spatial sampling bias",
+    subtitle = "Density of bee occurrence records in Puerto Rico
+    (excluding Bees_Of_SJ dataset)",
+    caption = "Projected in UTM zone 20N (EPSG:32620)"
+  ) +
+  
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.title = element_blank()
+  )
+
+p_spatial_bias_wbosj
+
+#export
+ggsave(
+  "maps/puerto_rico_spatial_bias_wbosj.pdf",
+  plot = p_spatial_bias_wbosj,
+  width = 15,
+  height = 10,
+  units = "cm"
+)
+
+
 # ========================
 # 4. TEMPORAL BIAS
 # ========================
@@ -365,6 +367,7 @@ ggsave(
   units = "cm"
 )
 
+
 # ---- B. Seasonal bias (month) ----
 
 occ_month <- occ_with_sf_clean |>
@@ -394,6 +397,38 @@ ggsave(
   units = "cm"
 )
 
+# Without "Bees_Of_SJ":
+season_family_wbosj <- occ_with_sf_clean |>
+  filter(
+    !is.na(family),
+    databaseSource != "Bees_Of_SJ"
+  ) |>
+  count(family, month_factor)
+
+p_season_family_wbosj <- ggplot(season_family_wbosj,
+                                aes(x = month_factor, y = n, fill = family)) +
+  geom_col(position = "stack") +
+  labs(
+    title = "Seasonal sampling bias per bee family in Puerto Rico 
+    (excluding Bees_Of_SJ dataset)",
+    x = "Month",
+    y = "Number of records",
+    fill = "Family"
+  ) +
+  theme_minimal()
+
+p_season_family_wbosj
+
+#export
+ggsave(
+  "maps/puerto_rico_season_family_bias_wbosj.pdf",
+  plot = p_season_family_wbosj,
+  width = 15,
+  height = 10,
+  units = "cm"
+)
+
+
 # ========================
 # 5. TAXONOMIC BIAS
 # ========================
@@ -409,6 +444,7 @@ p_taxonomic_bias <- ggplot(
 ) +
   geom_col() +
   coord_flip() +
+  scale_y_continuous(limits = c(0, 2550)) +
   labs(
     title = "Taxonomic sampling bias",
     subtitle = "Number of occurrence records per bee family",
@@ -418,6 +454,7 @@ p_taxonomic_bias <- ggplot(
   theme_minimal()
 
 p_taxonomic_bias
+
 #export
 ggsave(
   "maps/puerto_rico_taxonomic_bias.pdf",
@@ -450,6 +487,8 @@ occ_with_sf_clean <- occ_with_sf_clean |>
       labels = month.abb
     )
   )
+
+
 
 ############################################################
 # 1. SEASONAL BIAS PER FAMILY
@@ -555,6 +594,16 @@ occ_time <- occ_with_sf_clean |>
   mutate(year = as.numeric(year)) |>
   filter(!is.na(year), !is.na(databaseSource)) |>
   count(year, databaseSource)
+library(RColorBrewer)
+
+# Get the database names from the full dataset
+db_levels <- sort(unique(occ_with_sf_clean$databaseSource))
+
+# Assign one color per database
+db_colors <- setNames(
+  brewer.pal(length(db_levels), "Set2"),
+  db_levels
+)
 
 # Plot: stacked bars
 p_sampling_time <- ggplot(
@@ -573,7 +622,8 @@ p_sampling_time <- ggplot(
   theme(
     panel.grid = element_blank(),
     legend.position = "right"
-  )
+  )+
+  scale_fill_manual(values = db_colors)
 
 p_sampling_time
 
@@ -586,35 +636,76 @@ ggsave(
   units = "cm"
 )
 
+
+
+# Without Bees_Of_SJ:
+
+# cleaning year and taking out bees of san juan
+occ_time <- occ_with_sf_clean |>
+  mutate(year = as.numeric(year)) |>
+  filter(!is.na(year), !is.na(databaseSource)) |>
+  filter(databaseSource != "Bees_Of_SJ") |>
+  count(year, databaseSource)
+
+# Plot: stacked bars
+p_sampling_time_wbosj <- ggplot(
+  occ_time %>% filter(databaseSource != "Bees_Of_SJ"),
+  aes(x = year, y = n, fill = databaseSource)
+) +
+  geom_col() +
+  labs(
+    title = "Sampling effort through time",
+    subtitle = "Number of occurrence records per year and data source
+    (excluding Bees_Of_SJ)",
+    x = "Year",
+    y = "Number of records",
+    fill = "Data source"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    legend.position = "right"
+  )+
+  scale_fill_manual(values = db_colors, drop = FALSE)
+
+p_sampling_time_wbosj
+
+#export
+ggsave(
+  "maps/puerto_rico_sampling_time_biases_wbosj.pdf",
+  plot = p_sampling_time_wbosj,
+  width = 15,
+  height = 10,
+  units = "cm"
+)
+
 ############################################################
 # 2. TAXONOMIC COMPLETENESS CURVE
 ############################################################
 # (Species accumulation curve)
 
-# --- IMPORTANT ---
-# Replace `species` below if your column has a different name
-# (e.g. scientificName)
-
+# ---- IMPORTANT ---- species are based on the column: specificEpithet
+# 
 occ_tax <- occ_with_sf_clean |>
-  filter(!is.na(scientificName)) |>
+  filter(!is.na(specificEpithet), specificEpithet != "") |>
   arrange(year) |>
   mutate(record_id = row_number())
 
 # Cumulative number of unique scientificName
 occ_completeness <- occ_tax |>
   mutate(
-    cumulative_species = cumsum(!duplicated(scientificName))
+    cumulative_species = cumsum(!duplicated(specificEpithet))
   ) |>
   group_by(record_id) |>
   summarise(
     records = max(record_id),
-    scientificName = max(cumulative_species)
+    specificEpithet = max(cumulative_species)
   )
 
 # Plot completeness curve
 p_completeness <- ggplot(
   occ_completeness,
-  aes(x = records, y = scientificName)
+  aes(x = records, y = specificEpithet)
 ) +
   geom_line(linewidth = 1) +
   labs(
@@ -625,7 +716,7 @@ p_completeness <- ggplot(
   ) +
   theme_minimal()
 
-p_completeness
+p_completeness # this is without the 95% IC for Chao1
 
 #export
 ggsave(
@@ -636,8 +727,67 @@ ggsave(
   units = "cm"
 )
 
+# Add the 95% IC of Chao1 in the plot:
+library(iNEXT)
+
+# Abundance vector: number of records per species
+abund_test <- occ_with_sf_clean %>%                      # your raw occurrence data
+  filter(!is.na(specificEpithet), specificEpithet != "") %>%
+  count(specificEpithet, name = "n") %>%
+  pull(n)
+
+chao_res <- ChaoRichness(abund_test, datatype = "abundance")
+chao_res
+# Observed Estimator Est_s.e. 95% Lower 95% Upper
+# 1       38    42.165    4.882    38.673    63.764
+
+#   Observed Estimator Est_s.e. 95% Lower 95% Upper
+
+chao_est   <- chao_res$Estimator #42.165
+chao_lower <- chao_res$`95% Lower` #38.673
+chao_upper <- chao_res$`95% Upper` #63.764
 
 
+p_completeness_95 <- ggplot(
+  occ_completeness,
+  aes(x = records, y = specificEpithet)
+) +
+  annotate(
+    "rect",
+    xmin = -Inf, xmax = Inf,
+    ymin = chao_lower, ymax = chao_upper,
+    fill = "red", alpha = 0.15
+  ) +
+  geom_line(linewidth = 1) +
+  geom_hline(
+    yintercept = chao_est,
+    linetype = "dashed",
+    color = "red",
+    linewidth = 0.7
+  ) +
+  annotate(
+    "text",
+    x = max(occ_completeness$records), y = chao_est,
+    label = paste0("Chao richness: ", round(chao_est, 1)),
+    color = "red", vjust = -0.5, hjust = 1, size = 3.5
+  ) +
+  labs(
+    title = "Taxonomic completeness curve",
+    subtitle = "Cumulative number of species as a function of sampling effort",
+    x = "Number of records",
+    y = "Cumulative species richness"
+  ) +
+  theme_minimal()
+
+p_completeness_95
+
+ggsave(
+  "maps/puerto_rico_species_rarefaction_curve_IC95.pdf",
+  plot = p_completeness_95,
+  width = 15,
+  height = 10,
+  units = "cm"
+)
 
 
 ############################################################
@@ -647,18 +797,24 @@ ggsave(
 library(dplyr)
 library(ggplot2)
 
-# ---- IMPORTANT ----
-# Replace `species` if your column is called differently
-# (e.g. scientificName)
+# ---- IMPORTANT ---- calculations are based on the column: family (no na and not empty) and the genus+species (for Colletidae, to not loose the entire family as none of the specimens were identified up to the species)
 
 occ_family_comp <- occ_with_sf_clean |>
-  filter(!is.na(family), !is.na(scientificName)) |>
-  mutate(year = as.numeric(year)) |>
+  filter(!is.na(family), family != "") |>
+  filter(!is.na(genus), genus != "") |>                 # need at least genus-level ID
+  mutate(
+    year = as.numeric(year),
+    taxon = if_else(
+      !is.na(specificEpithet) & specificEpithet != "",
+      paste(genus, specificEpithet),
+      genus
+    )
+  ) |>
   arrange(year) |>
   group_by(family) |>
   mutate(
     record_order = row_number(),
-    cumulative_species = cumsum(!duplicated(scientificName))
+    cumulative_species = cumsum(!duplicated(taxon))
   ) |>
   ungroup()
 
@@ -674,7 +830,7 @@ p_family_completeness <- ggplot(
     title = "Family-level taxonomic completeness",
     subtitle = "Cumulative species richness per bee family",
     x = "Number of records (per family)",
-    y = "Cumulative species richness",
+    y = "Cumulative taxonomic richness (species)",
     color = "Family"
   ) +
   theme_minimal() +
@@ -694,53 +850,214 @@ ggsave(
   units = "cm"
 )
 
-############################################################
-# END OF SCRIPT
-############################################################
+
+# Colletidae is not seen, let's highlight its curve in another graph:
+
+library(gghighlight)
+
+p_family_completeness_colletidae <- ggplot(
+  occ_family_comp,
+  aes(x = record_order,
+      y = cumulative_species,
+      color = family)
+) +
+  geom_line(linewidth = 1) +
+  gghighlight(
+    family == "Colletidae",
+    use_direct_label = FALSE,
+    unhighlighted_params = list(linewidth = 0.6, colour = "grey85")
+  ) +
+  labs(
+    title = "Family-level taxonomic completeness",
+    subtitle = "Cumulative species richness per bee family (Colletidae highlighted)",
+    x = "Number of records (per family)",
+    y = "Cumulative taxonomic richness (species)",
+    color = "Family"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    legend.position = "right"
+  )
+
+p_family_completeness_colletidae
+ggsave(
+  "maps/puerto_rico_family_raref_colletidae.pdf",
+  plot = p_family_completeness_colletidae,
+  width = 15,
+  height = 10,
+  units = "cm"
+)
+    
 
 
-#CHAO1 ANALYSIS
 
-############################################################
-# CHAO1 RICHNESS ESTIMATION
-############################################################
+# Creating the panels sampling effort through time (with and without Bees_Of_SJ), with A and B 
+# p_taxonomic_bias and p_family_completeness
 
+# Combine the two plots
+p_AB_Taxo <- p_family_completeness + p_taxonomic_bias +
+  plot_annotation(tag_levels = "A")
+
+# Display
+p_AB_Taxo
+# Save
+ggsave(
+  "maps/Panel_TaxoBias+Completeness.pdf",
+  p_AB_Taxo,
+  width = 25,
+  height = 10,
+  units = "cm",
+  dpi = 300
+)
+
+
+# Creating the panels Taxonomic sampling bias and Family-level taxonomic completeness, with A and B 
+# p_sampling_time and p_sampling_time_wbosj
+library(patchwork)
+
+# Combine the two plots
+p_AB_samplingEffort <- p_sampling_time + p_sampling_time_wbosj +
+  plot_annotation(tag_levels = "A")
+
+# Display
+p_AB_samplingEffort
+# Save
+ggsave(
+  "maps/Panel_SamplingEffort_with_without_BOSJ.pdf",
+  p_AB_samplingEffort,
+  width = 25,
+  height = 10,
+  units = "cm",
+  dpi = 300
+)
+
+
+# Creating the panels Taxonomic sampling bias and Family-level taxonomic completeness, with A and B 
+# p_sampling_time and p_sampling_time_wbosj
+library(patchwork)
+
+# Combine the two plots
+p_AB_seasonFam <- p_season_family + p_season_family_wbosj +
+  plot_annotation(tag_levels = "A")
+
+# Display
+p_AB_seasonFam
+# Save
+ggsave(
+  "maps/Panel_SeasonFam_with_without_BOSJ.pdf",
+  p_AB_seasonFam,
+  width = 26,
+  height = 10,
+  units = "cm",
+  dpi = 300
+)
+
+
+# #CHAO1 ANALYSIS (additional calculation - not used)
+# 
+# ############################################################
+# # CHAO1 RICHNESS ESTIMATION
+# ############################################################
+# 
+# library(dplyr)
+# library(vegan)
+# 
+# ############################################################
+# # 1. PREPARE SPECIES ABUNDANCE VECTOR
+# ############################################################
+# 
+# # Replace 'species' if needed => scientificName involves genera as well. Consider only species
+# species_counts <- occ_with_sf_clean |>
+#   filter(!is.na(specificEpithet)) |>
+#   count(specificEpithet)
+# 
+# abundance_vector <- species_counts$n
+# 
+# ############################################################
+# # 2. CHAO1 ESTIMATOR
+# ############################################################
+# 
+# chao_result <- estimateR(abundance_vector)
+# chao_result
+# # S.obs   S.chao1  se.chao1     S.ACE    se.ACE 
+# # 39.000000 42.750000  4.202839 44.253610  3.228119
+# observed_richness <- chao_result["S.obs"]
+# # S.obs 
+# # 39 
+# chao1_estimate    <- chao_result["S.chao1"]
+# # S.chao1 
+# # 42.75 
+# se_chao1          <- chao_result["se.chao1"]
+# # se.chao1 
+# # 4.202839 
+# 
+# ############################################################
+# # 3. SAMPLING COMPLETENESS
+# ############################################################
+# 
+# sampling_completeness <- observed_richness / chao1_estimate * 100
+# 
+# ############################################################
+# # 4. PRINT RESULTS
+# ############################################################
+# 
+# cat("Observed richness:", observed_richness, "\n") #Observed richness: 39
+# cat("Chao1 estimate:", round(chao1_estimate, 2), "\n") # Chao1 estimate: 42.75 
+# cat("Standard error:", round(se_chao1, 2), "\n") # Standard error: 4.2
+# cat("Sampling completeness (%):",
+#     round(sampling_completeness, 1), "\n") # Sampling completeness (%): 91.2
+
+
+#last df:
+combined_df <- read.delim(
+  "/Users/elifka/Library/CloudStorage/OneDrive-UMONS/PhDThesis_Elif-2020-2024/BEE-DATABASES/BEEPR-combined-Geocoded.txt",
+  header = TRUE,
+  stringsAsFactors = FALSE,
+  fileEncoding = "UTF-8",
+  quote = ""
+)
+# doing a table to summarize the list of species in the database:
+
+library(sf)
 library(dplyr)
-library(vegan)
+library(flextable)
+library(officer)
 
-############################################################
-# 1. PREPARE SPECIES ABUNDANCE VECTOR
-############################################################
 
-# Replace 'species' if needed => scientificName involves genera as well. Consider only species
-species_counts <- occ_with_sf_clean |>
-  filter(!is.na(specificEpithet)) |>
-  count(specificEpithet)
+# Create the summary table
+species_table <- combined_df |>
+  filter(
+    !is.na(family),
+    !is.na(scientificName),
+    !is.na(year)
+  ) |>
+  group_by(family, scientificName) |>
+  summarise(
+    Records = n(),
+    Years = if_else(
+      min(year) == max(year),
+      as.character(min(year)),
+      paste0(min(year), "–", max(year))
+    ),
+    .groups = "drop"
+  ) |>
+  arrange(family, scientificName)
 
-abundance_vector <- species_counts$n
+# Format the table
+ft <- flextable(species_table) |>
+  theme_booktabs() |>
+  autofit() |>
+  italic(j = "scientificName") |>
+  set_header_labels(
+    family = "Family",
+    scientificName = "Scientific name",
+    Records = "Records",
+    Years = "Collection period"
+  )
 
-############################################################
-# 2. CHAO1 ESTIMATOR
-############################################################
-
-chao_result <- estimateR(abundance_vector)
-
-observed_richness <- chao_result["S.obs"]
-chao1_estimate    <- chao_result["S.chao1"]
-se_chao1          <- chao_result["se.chao1"]
-
-############################################################
-# 3. SAMPLING COMPLETENESS
-############################################################
-
-sampling_completeness <- observed_richness / chao1_estimate * 100
-
-############################################################
-# 4. PRINT RESULTS
-############################################################
-
-cat("Observed richness:", observed_richness, "\n") #Observed richness: 39
-cat("Chao1 estimate:", round(chao1_estimate, 2), "\n") # Chao1 estimate: 42.75 
-cat("Standard error:", round(se_chao1, 2), "\n") # Standard error: 4.2
-cat("Sampling completeness (%):",
-    round(sampling_completeness, 1), "\n") # Sampling completeness (%): 91.2
+# Export to Word
+save_as_docx(
+  "Table 1. Inventory of bees collected in Puerto Rico between 1899 and 2023 listed from the different datasets (Bees_Of_SJ, GBIF, MEBT, MZUPRRP, and SaraPrado_PC)." = ft,
+  path = "Table1_Taxonomic_coverage.docx"
+)
